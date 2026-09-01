@@ -4,7 +4,7 @@
 
 **A single assistant, growing across a 3-week AI/GenAI course — from a plain LLM Q&A tool (Day 7) to a RAG-powered retriever (Day 14) to a full agentic system with tools, security, and MCP (Day 21).**
 
-![Tests](https://github.com/YOUR_USERNAME/ai-devops-release-assistant/actions/workflows/tests.yml/badge.svg)
+![Tests](https://github.com/saghosh8/ai-devops-release-assistant/actions/workflows/tests.yml/badge.svg)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![Gemini](https://img.shields.io/badge/Gemini-API-4285F4?logo=googlegemini&logoColor=white)
 ![Milestone](https://img.shields.io/badge/Milestone-v0.1--day7-blue)

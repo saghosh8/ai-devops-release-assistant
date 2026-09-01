@@ -71,7 +71,7 @@ This is the Day 7 capstone for a Week 1 course on LLM & GenAI foundations. Rathe
 | 3 | **Prompt security** | `INJECTION_DEFENSE_CLAUSE` (instruction-level) + `flag_suspicious_input()` (input-level warning) in `prompts.py` |
 | 4 | API concepts, auth, streaming, rate limits, errors | `client.py` — real `GEMINI_API_KEY` auth, `generate_content_stream()`, backoff on `ClientError(429)` / `ServerError`, clean `AssistantError` handling |
 | 5 | GPT / Claude / open-source / local LLMs | *(comparative knowledge — this project only calls Gemini; see note below)* |
-| 5 | Model selection: quality vs cost vs latency | `--model` flag — swap between `gemini-2.5-flash` and `gemini-2.5-flash-lite` |
+| 5 | Model selection: quality vs cost vs latency | `--model` flag — swap between `gemini-3.5-flash` and `gemini-3.5-flash-lite` |
 | 6 | Context management, memory, tools, guardrails | `memory.py` (local history + `--continue`), `tools.py` (real tool-use loop), scope guardrail in every system prompt |
 | 7 | Mini project | This whole repo |
 
@@ -127,8 +127,8 @@ python -m devops_assistant ask "why is my pod stuck in CrashLoopBackOff?"
 python -m devops_assistant ask "..." --markdown
 
 # Compare models — same question, different quality/cost/latency tradeoff
-python -m devops_assistant ask "..." --model gemini-2.5-flash-lite
-python -m devops_assistant ask "..." --model gemini-2.5-flash
+python -m devops_assistant ask "..." --model gemini-3.5-flash-lite
+python -m devops_assistant ask "..." --model gemini-3.5-flash
 
 # Follow-up question, using the last exchange as context
 python -m devops_assistant ask "what about on EKS specifically?" --continue
@@ -186,4 +186,3 @@ Tests cover prompt/memory/formatter logic only — no live API calls, so they ru
 ## Scope note
 
 This project sticks to Week 1, Days 1–6 for every GenAI/LLM concept — see the mapping table above. The `.github/workflows/` demo runner and the pytest CI workflow are the one deliberate exception: they're general delivery/engineering practice, not new LLM concepts, added specifically to satisfy "shown entirely via GitHub" rather than to teach anything beyond Day 6. If you want the strictest possible Day 1–6-only submission, those two workflow files (and `tests.yml`'s badge in this README) are safe to drop without losing any of the curriculum content.
-

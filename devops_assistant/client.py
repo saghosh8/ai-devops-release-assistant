@@ -43,8 +43,8 @@ from .tools import get_utc_time
 # Day 5: model selection — quality vs. cost vs. latency is a real, visible tradeoff
 # here, both currently free-tier eligible. Flash is the balanced default; Flash-Lite
 # trades some quality for speed and a higher free-tier rate limit.
-DEFAULT_MODEL = "gemini-2.5-flash"
-AVAILABLE_MODELS = ["gemini-2.5-flash", "gemini-2.5-flash-lite"]
+DEFAULT_MODEL = "gemini-3.5-flash"
+AVAILABLE_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite"]
 
 # Day 2: temperature — lower is more deterministic (good for a structured runbook
 # you want to be reproducible), higher is more varied. Exposed as a CLI flag rather
@@ -245,16 +245,18 @@ def ask_streaming(
 def ask_with_tools(question: str, model: str = DEFAULT_MODEL) -> str:
     """Ask a question, letting the model call the demo tool if it needs to. (Day 6)
 
-    Gemini's automatic function calling handles the whole request/execute/
-    respond loop internally — we just hand it the plain Python function.
+    Automatic function calling is only supported via the Chat API in current
+    SDK versions (direct Models.generate_content AFC is deprecated) — so this
+    uses client.chats.create(...).send_message(...) rather than a raw
+    generate_content call. The SDK still handles the whole request/execute/
+    respond loop internally; we just hand it the plain Python function.
     """
     client = get_client()
     config = types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT_STREAM, tools=[get_utc_time])
+    chat = client.chats.create(model=model, config=config)
 
     def _call():
-        return client.models.generate_content(
-            model=model, contents=[types.Part.from_text(text=question)], config=config
-        )
+        return chat.send_message(question)
 
     response = _with_retries(_call)
     return response.text

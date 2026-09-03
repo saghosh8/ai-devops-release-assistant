@@ -1,15 +1,11 @@
-<div align="center">
-
 # 🚀 AI-Powered DevOps Release Assistant
 
 **A single assistant, growing across a 3-week AI/GenAI course — from a plain LLM Q&A tool (Day 7) to a RAG-powered retriever (Day 14) to a full agentic system with tools, security, and MCP (Day 21).**
 
-![Tests](https://github.com/saghosh8/ai-devops-release-assistant/actions/workflows/tests.yml/badge.svg)
-![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
-![Gemini](https://img.shields.io/badge/Gemini-API-4285F4?logo=googlegemini&logoColor=white)
-![Milestone](https://img.shields.io/badge/Milestone-v0.1--day7-blue)
-
-</div>
+[![Tests](https://github.com/saghosh8/ai-devops-release-assistant/actions/workflows/tests.yml/badge.svg)](https://github.com/saghosh8/ai-devops-release-assistant/actions/workflows/tests.yml)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Gemini](https://img.shields.io/badge/Gemini-API-4285F4?logo=googlegemini&logoColor=white)](https://ai.google.dev/)
+[![Milestone](https://img.shields.io/badge/Milestone-v0.1--day7-blue)](https://github.com/saghosh8/ai-devops-release-assistant/releases/tag/v0.1-day7)
 
 ---
 
@@ -18,9 +14,9 @@
 This repo is intentionally **one evolving codebase**, not three separate projects. Each milestone is tagged so the growth is visible in the git history — which is the point: the same assistant gains capabilities each week rather than being rebuilt from scratch.
 
 | Tag | Week | What it adds | Status |
-|---|---|---|---|
-| [`v0.1-day7`](../../releases/tag/v0.1-day7) | Week 1 | Plain LLM Q&A → structured runbook (this README describes this stage) | ✅ Current |
-| `v0.2-day14` | Week 2 | RAG: ingest real GitHub docs/PRs/commits/YAML → chunk → embed → FAISS → retrieve → answer with Ollama | 🔜 Planned |
+| --- | ---- | ------------- | ------ |
+| [`v0.1-day7`](https://github.com/saghosh8/ai-devops-release-assistant/releases/tag/v0.1-day7) | Week 1 | Plain LLM Q&A → structured runbook (this README describes this stage) | ✅ Current |
+| `v0.2-day14` | Week 2 | RAG: ingest real GitHub docs/PRs/commits/YAML → chunk → embed → FAISS → retrieve → answer with Gemini | 🔜 Planned |
 | `v1.0-day21` | Week 3 | Full agent: tool-use against the real GitHub API, prompt-injection/PII guardrails, cost/latency logging, MCP server exposing this assistant's tools | 🔜 Planned |
 
 ```mermaid
@@ -33,7 +29,7 @@ flowchart LR
         D[GitHub: YAML/PRs/commits/docs] --> E[Chunk + embed]
         E --> F[(FAISS)]
         F --> G[Retriever]
-        G --> H[Ollama]
+        G --> H[Gemini API]
     end
     subgraph D21["Day 21 — Agent"]
         I[Agent + tools] --> J[GitHub API actions]
@@ -58,7 +54,7 @@ A small Python CLI that asks Gemini a DevOps question and gets back a **structur
 This is the Day 7 capstone for a Week 1 course on LLM & GenAI foundations. Rather than a nice chat UI that hides the mechanics, this project is built so each earlier day is visible somewhere in the code:
 
 | Day | Topic | Where it shows up |
-|---|---|---|
+| --- | ----- | ------------------ |
 | 1 | AI vs ML vs DL, Generative AI, LLMs, training vs inference, LLM limitations | *(conceptual — see [Day 1 & 2 concepts](#day-1--2-concepts-not-code-by-nature) below)* |
 | 2 | Tokens, context window | `max_tokens` in `client.py`; context-window tradeoff explained in `memory.py` |
 | 2 | Transformer basics, Attention | *(conceptual — not something a wrapper CLI implements; see below)* |
@@ -87,7 +83,6 @@ AI vs ML vs Deep Learning, Generative AI, training vs inference, transformer bas
 
 GPT, Claude, and open-source/local LLMs are comparative knowledge you're meant to *know about*, not something a single mini-project should awkwardly wire up four providers to prove. This project only calls Gemini — chosen specifically because Google AI Studio issues a free API key with no billing setup, unlike the Anthropic or OpenAI APIs — and demonstrates the *actionable* half of Day 5: quality/cost/latency tradeoffs, across two Gemini tiers via `--model`.
 
-
 ## Project structure
 
 ```
@@ -110,7 +105,7 @@ ai-devops-release-assistant/
 
 ## Setup
 
-```bash
+```
 git clone https://github.com/YOUR_USERNAME/ai-devops-release-assistant.git
 cd ai-devops-release-assistant
 pip install -r requirements.txt
@@ -119,7 +114,7 @@ export GEMINI_API_KEY=AIza...   # free key, no billing — see .env.example
 
 ## Usage
 
-```bash
+```
 # Structured runbook (default: colored terminal output)
 python -m devops_assistant ask "why is my pod stuck in CrashLoopBackOff?"
 
@@ -159,16 +154,9 @@ This is the point of the exercise: you don't need Python running anywhere to use
 3. Type your question, pick a model, run it.
 4. Open the completed run — the structured answer is rendered right there in the **Summary**.
 
-<!--
-📸 ADD PIC: screenshot of a completed "Ask DevOps Assistant" run, showing the
-rendered Markdown summary (headings, numbered steps, code blocks) on the Actions run page.
-This is the single best screenshot for this whole project — it's the "proof" shot.
-![Run summary example](docs/images/run-summary-example.png)
--->
-
 ## Testing
 
-```bash
+```
 pip install -r requirements-dev.txt
 pytest tests/ -v
 ```

@@ -1,0 +1,115 @@
+# Name of the GitHub Actions workflow
+name: Ask RAG Demo (Day 14)
+
+# This workflow runs manually from the GitHub Actions UI
+on:
+  workflow_dispatch:
+    inputs:
+
+      # Question entered by the user when starting the workflow
+      question:
+        description: "DevOps question to ask against the demo repo data"
+        required: true
+        default: "I'm getting exit code 1 on the docker build step in deploy.yml, what's going on?"
+
+      # Optional filter to restrict which type of content RAG searches
+      filter:
+        description: "Optional: restrict retrieval to one content type"
+        required: false
+        type: choice
+
+        # Available content types that can be searched
+        options: ["none", "yaml", "pr", "commit", "doc"]
+
+        # By default, search all content types
+        default: "none"
+
+
+# Define the jobs that will run
+jobs:
+  ask-rag:
+
+    # Run the job on a temporary Ubuntu GitHub Actions runner
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # Checkout the repository so the workflow has access
+      # to the RAG code and repository data
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+
+      # Install Python 3.11 on the GitHub Actions runner
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+
+      # Install the Python packages required by the RAG application
+      - name: Install Python dependencies
+        run: pip install -r requirements-rag.txt
+
+
+      # Install Ollama so we can run an LLM locally
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+
+      # Start the Ollama server
+      - name: Start Ollama server
+        run: |
+          # Start Ollama in the background
+          ollama serve &
+
+          # Wait until the Ollama API is ready
+          # Try up to 10 times, waiting 2 seconds between attempts
+          for i in {1..10}; do
+            curl -sf http://localhost:11434/api/tags && break
+            sleep 2
+          done
+
+
+      # Download the Llama 3.2 1B model
+      # This model will run locally through Ollama
+      - name: Pull small local model
+        run: ollama pull llama3.2:1b
+
+
+      # Run the RAG application and answer the user's question
+      - name: Ask the RAG assistant
+        env:
+
+          # Take the question entered in workflow_dispatch
+          # and store it in the QUESTION environment variable
+          QUESTION: ${{ github.event.inputs.question }}
+
+          # Take the selected filter and store it in FILTER
+          FILTER: ${{ github.event.inputs.filter }}
+
+        run: |
+
+          # If the user selected "none",
+          # don't pass any filter to the RAG application
+          if [ "$FILTER" = "none" ]; then
+            FILTER_ARG=""
+          else
+            # Otherwise create the filter argument
+            # Example: --filter yaml
+            FILTER_ARG="--filter $FILTER"
+          fi
+
+          # Run the RAG assistant
+          #
+          # "$QUESTION"       -> The question entered by the user
+          # --source local    -> Use local repository data
+          # --rebuild-index   -> Rebuild the RAG index before searching
+          # --markdown        -> Return the answer in Markdown format
+          # $FILTER_ARG       -> Optionally restrict retrieval by content type
+          #
+          # The final output is written to GitHub's Step Summary
+          python -m devops_assistant.rag.ask_rag "$QUESTION" \
+            --source local \
+            --rebuild-index \
+            --markdown $FILTER_ARG >> "$GITHUB_STEP_SUMMARY"

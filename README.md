@@ -1,4 +1,11 @@
 # 🚀 AI-Powered DevOps Release Assistant
+<a href="https://github.com/saghosh8/ai-devops-release-assistants">
+  <img src="https://img.shields.io/github/stars/saghosh8/AI-For-DevOps?style=for-the-badge&logo=github&label=STAR" />
+<a href="https://github.com/saghosh8/ai-devops-release-assistant/fork">
+  <img src="https://img.shields.io/github/forks/saghosh8/AI-For-DevOps?style=for-the-badge&logo=github&label=FORK" />
+</a>
+
+---
 
 **A single assistant, growing across a 3-week AI/GenAI course — from a plain LLM Q&A tool (Day 7) to a RAG-powered retriever (Day 14) to a full agentic system with tools, security, and MCP (Day 21).**
 

@@ -1,0 +1,60 @@
+name: Ask RAG Demo (Day 14)
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "DevOps question to ask against the demo repo data"
+        required: true
+        default: "I'm getting exit code 1 on the docker build step in deploy.yml, what's going on?"
+      filter:
+        description: "Optional: restrict retrieval to one content type"
+        required: false
+        type: choice
+        options: ["none", "yaml", "pr", "commit", "doc"]
+        default: "none"
+
+jobs:
+  ask-rag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements-rag.txt
+
+      - name: Install Ollama
+        run: curl -fsSL https://ollama.com/install.sh | sh
+
+      - name: Start Ollama server
+        run: |
+          ollama serve &
+          # give the server a moment to come up before pulling/generating
+          for i in {1..10}; do
+            curl -sf http://localhost:11434/api/tags && break
+            sleep 2
+          done
+
+      - name: Pull small local model
+        run: ollama pull llama3.2:1b
+
+      - name: Ask the RAG assistant
+        env:
+          QUESTION: ${{ github.event.inputs.question }}
+          FILTER: ${{ github.event.inputs.filter }}
+        run: |
+          if [ "$FILTER" = "none" ]; then
+            FILTER_ARG=""
+          else
+            FILTER_ARG="--filter $FILTER"
+          fi
+          python -m devops_assistant.rag.ask_rag "$QUESTION" \
+            --source local \
+            --rebuild-index \
+            --markdown $FILTER_ARG >> "$GITHUB_STEP_SUMMARY"

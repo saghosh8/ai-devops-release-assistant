@@ -10,26 +10,25 @@ Loads content into a common Document shape:
         "text": str,            # the actual content to embed
     }
 
-Two sources are supported:
-  - "local"  : reads from sample_repo_data/ (deterministic, offline, used by the
-               GitHub Actions demo and by tests)
-  - "github" : pulls from real repos via the GitHub REST API.
-
-Keeping both modes behind the same interface means retriever.py and rag_client.py
-never need to know or care which source produced a Document.
+Pulls real repo content (workflow YAMLs, PRs, commits, README) via the GitHub
+REST API. retriever.py and rag_client.py only ever see Document objects and
+don't need to know how they were produced.
 """
 
 from __future__ import annotations
 
-import json
 import os
 import base64
 import requests
 from dataclasses import dataclass, asdict
-from pathlib import Path
-from typing import Iterable
 
 GITHUB_API = "https://api.github.com"
+
+GITHUB_REPOS = [
+    "saghosh8/release-automation",
+    "saghosh8/application-one",
+    "saghosh8/application-two",
+]
 
 
 @dataclass
@@ -42,91 +41,6 @@ class Document:
 
     def to_dict(self) -> dict:
         return asdict(self)
-
-
-def _read_yaml_docs(base: Path) -> Iterable[Document]:
-    workflows_dir = base / "workflows"
-    if not workflows_dir.exists():
-        return
-    for yml_path in sorted(workflows_dir.glob("*.yml")):
-        text = yml_path.read_text(encoding="utf-8")
-        yield Document(
-            id=f"yaml:{yml_path.name}",
-            source_type="yaml",
-            path=f".github/workflows/{yml_path.name}",
-            date=None,
-            text=text,
-        )
-
-
-def _read_pr_docs(base: Path) -> Iterable[Document]:
-    prs_dir = base / "prs"
-    if not prs_dir.exists():
-        return
-    for pr_path in sorted(prs_dir.glob("*.json")):
-        pr = json.loads(pr_path.read_text(encoding="utf-8"))
-        text = (
-            f"PR #{pr['number']}: {pr['title']}\n"
-            f"Files changed: {', '.join(pr.get('files_changed', []))}\n"
-            f"{pr.get('description', '')}"
-        )
-        yield Document(
-            id=f"pr:{pr['number']}",
-            source_type="pr",
-            path=f"PR #{pr['number']}",
-            date=pr.get("merged_at"),
-            text=text,
-        )
-
-
-def _read_commit_docs(base: Path) -> Iterable[Document]:
-    commits_path = base / "commits" / "commits.json"
-    if not commits_path.exists():
-        return
-    commits = json.loads(commits_path.read_text(encoding="utf-8"))
-    for c in commits:
-        text = (
-            f"Commit {c['sha']}: {c['message']}\n"
-            f"Files changed: {', '.join(c.get('files_changed', []))}"
-        )
-        yield Document(
-            id=f"commit:{c['sha']}",
-            source_type="commit",
-            path=f"commit {c['sha']}",
-            date=c.get("date"),
-            text=text,
-        )
-
-
-def _read_doc_docs(base: Path) -> Iterable[Document]:
-    docs_dir = base / "docs"
-    if not docs_dir.exists():
-        return
-    for doc_path in sorted(docs_dir.glob("*.md")):
-        text = doc_path.read_text(encoding="utf-8")
-        yield Document(
-            id=f"doc:{doc_path.name}",
-            source_type="doc",
-            path=doc_path.name,
-            date=None,
-            text=text,
-        )
-
-
-def load_local(sample_data_dir: str = "sample_repo_data") -> list[Document]:
-    """Load all fixture documents from a local sample_repo_data directory."""
-    base = Path(sample_data_dir)
-    if not base.exists():
-        raise FileNotFoundError(
-            f"sample_repo_data directory not found at '{base}'. "
-            "Run this from the repo root, or pass --sample-data-dir."
-        )
-    docs: list[Document] = []
-    docs.extend(_read_yaml_docs(base))
-    docs.extend(_read_pr_docs(base))
-    docs.extend(_read_commit_docs(base))
-    docs.extend(_read_doc_docs(base))
-    return docs
 
 
 def _gh_headers(token: str | None) -> dict:
@@ -225,21 +139,12 @@ def load_github(repo: str, token: str | None = None) -> list[Document]:
     return docs
 
 
-def load(source: str = "local", **kwargs) -> list[Document]:
-    if source == "local":
-        return load_local(kwargs.get("sample_data_dir", "sample_repo_data"))
+def load(source: str = "github", **kwargs) -> list[Document]:
     if source == "github":
-        repos = kwargs["repos"]  # list[str]
+        repos = kwargs.get("repos", GITHUB_REPOS)
         token = kwargs.get("token")
         docs: list[Document] = []
         for repo in repos:
             docs.extend(load_github(repo, token))
         return docs
     raise ValueError(f"Unknown source: {source!r}")
-
-
-GITHUB_REPOS = [
-    "saghosh8/release-automation",
-    "saghosh8/application-one",
-    "saghosh8/application-two",
-]

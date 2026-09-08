@@ -1,0 +1,9 @@
+{
+  "number": 52,
+  "title": "Add retry logic to deploy step",
+  "author": "saghosh8",
+  "merged_at": "2026-09-06T14:30:00Z",
+  "files_changed": [".github/workflows/deploy.yml"],
+  "description": "Adds a 3-attempt retry wrapper around the kubectl apply step in deploy.yml to handle transient EKS API throttling. Unrelated to the Docker build step.",
+  "labels": ["ci-cd", "reliability"]
+}

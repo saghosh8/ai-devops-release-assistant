@@ -149,6 +149,13 @@ def load(source: str = "github", **kwargs) -> list[Document]:
         token = kwargs.get("token")
         docs: list[Document] = []
         for repo in repos:
-            docs.extend(load_github(repo, token))
+            repo_docs = load_github(repo, token)
+            print(f"[ingest] {repo}: {len(repo_docs)} documents "
+                  f"({sum(1 for d in repo_docs if d.source_type=='yaml')} yaml, "
+                  f"{sum(1 for d in repo_docs if d.source_type=='pr')} pr, "
+                  f"{sum(1 for d in repo_docs if d.source_type=='commit')} commit, "
+                  f"{sum(1 for d in repo_docs if d.source_type=='doc')} doc)",
+                  file=sys.stderr)
+            docs.extend(repo_docs)
         return docs
     raise ValueError(f"Unknown source: {source!r}")

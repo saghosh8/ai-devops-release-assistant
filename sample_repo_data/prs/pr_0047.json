@@ -1,9 +1,0 @@
-{
-  "number": 47,
-  "title": "Bump base image to node:20",
-  "author": "saghosh8",
-  "merged_at": "2026-09-04T10:15:00Z",
-  "files_changed": ["Dockerfile"],
-  "description": "Upgrades the base image in Dockerfile from node:18-slim to node:20-slim to pick up the latest LTS. package-lock.json was not regenerated in this PR — follow-up planned if any native deps break. Possible impact: the docker build step in deploy.yml could start failing with npm install/engine errors if package-lock.json is not updated to match node:20.",
-  "labels": ["dependencies", "docker"]
-}

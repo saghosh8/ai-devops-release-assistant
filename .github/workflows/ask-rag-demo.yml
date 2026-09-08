@@ -90,7 +90,7 @@ jobs:
 
           # Token used to read repo content (README, workflows, PRs, commits)
           # from the real GitHub repos being ingested
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
 
         run: |
 

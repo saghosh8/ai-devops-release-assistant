@@ -12,12 +12,8 @@ Loads content into a common Document shape:
 
 Two sources are supported:
   - "local"  : reads from sample_repo_data/ (deterministic, offline, used by the
-               GitHub Actions demo and by tests — this is the only mode that works
-               without a GitHub token or live network access)
-  - "github" : (stub) pulls from a real repo via the GitHub REST API. Left as a
-               documented extension point — not required for the demo, since we
-               only have GitHub Actions to show this in and don't want the demo's
-               correctness to depend on live API rate limits or a token secret.
+               GitHub Actions demo and by tests)
+  - "github" : pulls from real repos via the GitHub REST API.
 
 Keeping both modes behind the same interface means retriever.py and rag_client.py
 never need to know or care which source produced a Document.
@@ -26,9 +22,14 @@ never need to know or care which source produced a Document.
 from __future__ import annotations
 
 import json
+import os
+import base64
+import requests
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Iterable
+
+GITHUB_API = "https://api.github.com"
 
 
 @dataclass
@@ -128,25 +129,117 @@ def load_local(sample_data_dir: str = "sample_repo_data") -> list[Document]:
     return docs
 
 
+def _gh_headers(token: str | None) -> dict:
+    token = token or os.environ.get("GITHUB_TOKEN")
+    headers = {"Accept": "application/vnd.github+json"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    return headers
+
+
 def load_github(repo: str, token: str | None = None) -> list[Document]:
     """
-    Stub for pulling live data from a real GitHub repo (workflow YAML, recent PRs,
-    commits, docs) via the REST API. Not wired into the demo — the Actions demo and
-    tests use load_local() so the pipeline is deterministic and doesn't need a
-    GITHUB_TOKEN secret or live rate-limit budget to run reliably in CI.
-
-    Implement this the same way client.py in the Day 7 stage handles auth/retries,
-    if/when this becomes needed for a real target repo.
+    Pulls live data from a real GitHub repo: workflow YAMLs, recent PRs,
+    recent commits, and README.
     """
-    raise NotImplementedError(
-        "Live GitHub ingestion is a documented future extension — "
-        "the demo and tests use load_local() instead."
-    )
+    headers = _gh_headers(token)
+    docs: list[Document] = []
+
+    # workflow YAMLs
+    try:
+        resp = requests.get(
+            f"{GITHUB_API}/repos/{repo}/contents/.github/workflows",
+            headers=headers, timeout=15,
+        )
+        resp.raise_for_status()
+        for item in resp.json():
+            if item["type"] != "file" or not item["name"].endswith((".yml", ".yaml")):
+                continue
+            file_resp = requests.get(item["url"], headers=headers, timeout=15)
+            file_resp.raise_for_status()
+            content = base64.b64decode(file_resp.json()["content"]).decode("utf-8", "ignore")
+            docs.append(Document(
+                id=f"yaml:{repo}:{item['name']}",
+                source_type="yaml",
+                path=f"{repo}/.github/workflows/{item['name']}",
+                date=None,
+                text=content,
+            ))
+    except requests.HTTPError:
+        pass
+
+    # recent PRs
+    try:
+        resp = requests.get(
+            f"{GITHUB_API}/repos/{repo}/pulls",
+            headers=headers, params={"state": "all", "per_page": 20}, timeout=15,
+        )
+        resp.raise_for_status()
+        for pr in resp.json():
+            text = f"PR #{pr['number']}: {pr['title']}\n{pr.get('body') or ''}"
+            docs.append(Document(
+                id=f"pr:{repo}:{pr['number']}",
+                source_type="pr",
+                path=f"{repo} PR #{pr['number']}",
+                date=pr.get("merged_at"),
+                text=text,
+            ))
+    except requests.HTTPError:
+        pass
+
+    # recent commits
+    try:
+        resp = requests.get(
+            f"{GITHUB_API}/repos/{repo}/commits",
+            headers=headers, params={"per_page": 30}, timeout=15,
+        )
+        resp.raise_for_status()
+        for c in resp.json():
+            sha = c.get("sha", "")[:7]
+            msg = c.get("commit", {}).get("message", "")
+            docs.append(Document(
+                id=f"commit:{repo}:{sha}",
+                source_type="commit",
+                path=f"{repo} commit {sha}",
+                date=c.get("commit", {}).get("author", {}).get("date"),
+                text=f"Commit {sha}: {msg}",
+            ))
+    except requests.HTTPError:
+        pass
+
+    # README
+    try:
+        resp = requests.get(f"{GITHUB_API}/repos/{repo}/readme", headers=headers, timeout=15)
+        resp.raise_for_status()
+        content = base64.b64decode(resp.json()["content"]).decode("utf-8", "ignore")
+        docs.append(Document(
+            id=f"doc:{repo}:README.md",
+            source_type="doc",
+            path=f"{repo}/README.md",
+            date=None,
+            text=content,
+        ))
+    except requests.HTTPError:
+        pass
+
+    return docs
 
 
 def load(source: str = "local", **kwargs) -> list[Document]:
     if source == "local":
         return load_local(kwargs.get("sample_data_dir", "sample_repo_data"))
     if source == "github":
-        return load_github(kwargs["repo"], kwargs.get("token"))
+        repos = kwargs["repos"]  # list[str]
+        token = kwargs.get("token")
+        docs: list[Document] = []
+        for repo in repos:
+            docs.extend(load_github(repo, token))
+        return docs
     raise ValueError(f"Unknown source: {source!r}")
+
+
+GITHUB_REPOS = [
+    "saghosh8/release-automation",
+    "saghosh8/application-one",
+    "saghosh8/application-two",
+]

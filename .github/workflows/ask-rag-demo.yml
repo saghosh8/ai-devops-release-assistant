@@ -19,10 +19,11 @@ on:
         type: choice
 
         # Available content types that can be searched
-        options: ["none", "yaml", "pr", "commit", "doc"]
+        # "all" = no filter, search yaml + pr + commit + doc together
+        options: ["all", "yaml", "pr", "commit", "doc"]
 
         # By default, search all content types
-        default: "none"
+        default: "all"
 
 
 # Define the jobs that will run
@@ -90,13 +91,14 @@ jobs:
 
           # Token used to read repo content (README, workflows, PRs, commits)
           # from the real GitHub repos being ingested
-          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
         run: |
 
-          # If the user selected "none",
-          # don't pass any filter to the RAG application
-          if [ "$FILTER" = "none" ]; then
+          # If the user selected "all",
+          # don't pass any filter to the RAG application —
+          # it searches yaml + pr + commit + doc together
+          if [ "$FILTER" = "all" ]; then
             FILTER_ARG=""
           else
             # Otherwise create the filter argument

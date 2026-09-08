@@ -4,7 +4,7 @@ This repo grows across three milestones, one per course week. Each milestone is 
 in git so the assistant's evolution is inspectable at any point — see the README's
 milestone table for tags.
 
-## ✅ v0.1-day7 — Plain LLM assistant (current)
+## ✅ v0.1-day7 — Plain LLM assistant
 
 Per the course diagram: `Question → System prompt + JSON schema → Gemini → Structured runbook`
 
@@ -21,26 +21,32 @@ Per the course diagram: `Question → System prompt + JSON schema → Gemini →
 | `formatter.py` | Terminal (ANSI) and Markdown renderers |
 | `cli.py` | argparse CLI: `ask` / `stream` / `tools-demo` / `history` |
 
-## 🔜 v0.2-day14 — RAG: DevOps Release Assistant
+## ✅ v0.2-day14 — RAG: DevOps Release Assistant (current)
 
-Per the course diagram: `GitHub → YAML/PRs/Commits/Docs → Embeddings → FAISS → Retriever → Gemini → DevOps Assistant`
+Per the course diagram: `GitHub → YAML/PRs/Commits/Docs → Embeddings → FAISS → Retriever → Ollama → DevOps Assistant`
 
-Planned additions:
+Ingests live from **three real repos** — [`release-automation`](https://github.com/saghosh8/release-automation),
+`application-one`, `application-two` — instead of local sample/fixture data. Generation
+runs on a local model via Ollama rather than a paid API, so the whole pipeline is
+runnable with nothing but a GitHub token.
 
-| File | What it will do |
+| File | What it does |
 |---|---|
-| `ingest/` | Pull real content from a target GitHub repo: workflow YAML, recent PR descriptions, commit messages, and docs (Day 9: document loaders, cleaning, metadata) |
-| `chunking.py` | Split ingested content into chunks with a configurable size/overlap (Day 10) |
-| `embeddings.py` | Embed chunks with Sentence Transformers (Day 10: embeddings, cosine similarity) |
-| `vectorstore.py` | Store/query embeddings in FAISS, with metadata filtering (Day 11) |
-| `retriever.py` | Top-K similarity search, with room to add hybrid search/reranking later (Day 12) |
-| `rag_client.py` | Construct a prompt that injects retrieved context, and answer via the Gemini API (Day 13) |
+| `rag/ingest.py` | Pulls workflow YAML, PR titles/bodies, commit messages, and README from each configured repo via the GitHub REST API (Day 9: document loaders, cleaning, metadata) |
+| `rag/embeddings.py` | Embeds chunks with Sentence Transformers (Day 10: embeddings, cosine similarity) |
+| `rag/vectorstore.py` | Stores/queries embeddings in FAISS (Day 11) |
+| `rag/retriever.py` | Builds the index from `ingest.load()`, runs top-K similarity search with an optional `source_type` filter (Day 12) |
+| `rag/rag_client.py` | Constructs a prompt from retrieved context and answers via a local Ollama model (Day 13) |
+| `rag/ask_rag.py` | CLI entry point — question in, cited answer out |
 
-New CLI command: `devops-assistant ask-rag "<question>" --repo <owner/repo>`
+Run it: `python -m devops_assistant.rag.ask_rag "<question>" --repos owner/repo1 owner/repo2`
+(defaults to the configured `GITHUB_REPOS` list if `--repos` is omitted), or via the
+**"Ask RAG Anything"** GitHub Actions workflow — no local setup required, Ollama installs
+and runs inside the job.
 
-This milestone answers questions like *"what changed in the last release?"* or *"why did
-this workflow fail last time?"* — things the Day 7 assistant structurally cannot know,
-because it has no access to your repo's actual history.
+This milestone answers questions like *"what changed in the release workflow?"* or *"is
+there any security issue across these repos?"* — things the Day 7 assistant structurally
+cannot know, because it has no access to real repo history.
 
 ## 🔜 v1.0-day21 — Full agent: AI-Powered DevOps Release Assistant
 

@@ -4,7 +4,6 @@ ask_rag.py — CLI entry point: `python -m devops_assistant.rag.ask_rag "<questi
 Runnable standalone (used directly by the GitHub Actions demo workflow) and also
 designed to be wired into the main argparse CLI in devops_assistant/cli.py as an
 `ask-rag` subcommand alongside the existing `ask` / `stream` / `tools-demo` commands.
-See README_RAG_INTEGRATION.md for the two-line snippet to add it there.
 """
 
 from __future__ import annotations
@@ -14,6 +13,7 @@ import json
 import sys
 
 from devops_assistant.rag.embeddings import Embedder
+from devops_assistant.rag.ingest import GITHUB_REPOS
 from devops_assistant.rag.rag_client import ask_rag, DEFAULT_OLLAMA_MODEL
 from devops_assistant.rag.retriever import Retriever
 from devops_assistant.rag.vectorstore import DEFAULT_INDEX_DIR
@@ -26,15 +26,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("question", help="The question to ask")
     parser.add_argument(
-        "--source",
-        default="local",
-        choices=["local", "github"],
-        help="Where to ingest repo data from (default: local fixture data)",
-    )
-    parser.add_argument(
-        "--sample-data-dir",
-        default="sample_repo_data",
-        help="Path to local fixture data (used when --source local)",
+        "--repos",
+        nargs="+",
+        default=GITHUB_REPOS,
+        help="GitHub repos to ingest from, e.g. --repos owner/repo1 owner/repo2 "
+             "(default: the configured GITHUB_REPOS)",
     )
     parser.add_argument(
         "--rebuild-index",
@@ -59,10 +55,8 @@ def main(argv: list[str] | None = None) -> int:
 
     needs_build = args.rebuild_index or not _index_exists()
     if needs_build:
-        print("Building index from repo data...", file=sys.stderr)
-        retriever.build_index(
-            source=args.source, sample_data_dir=args.sample_data_dir
-        )
+        print(f"Building index from GitHub repos: {args.repos}...", file=sys.stderr)
+        retriever.build_index(source="github", repos=args.repos)
 
     result = ask_rag(
         args.question,

@@ -8,9 +8,9 @@ on:
 
       # Question entered by the user when starting the workflow
       question:
-        description: "DevOps question to ask against the demo repo data"
+        description: "DevOps question to ask against the ingested repos"
         required: true
-        default: "I'm getting exit code 1 on the docker build step in deploy.yml, what's going on?"
+        default: "Why might a workflow fail on the docker build step?"
 
       # Optional filter to restrict which type of content RAG searches
       filter:
@@ -35,7 +35,7 @@ jobs:
     steps:
 
       # Checkout the repository so the workflow has access
-      # to the RAG code and repository data
+      # to the RAG code
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -88,6 +88,10 @@ jobs:
           # Take the selected filter and store it in FILTER
           FILTER: ${{ github.event.inputs.filter }}
 
+          # Token used to read repo content (README, workflows, PRs, commits)
+          # from the real GitHub repos being ingested
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+
         run: |
 
           # If the user selected "none",
@@ -103,13 +107,15 @@ jobs:
           # Run the RAG assistant
           #
           # "$QUESTION"       -> The question entered by the user
-          # --source local    -> Use local repository data
-          # --rebuild-index   -> Rebuild the RAG index before searching
+          # --rebuild-index   -> Rebuild the RAG index from live GitHub data
           # --markdown        -> Return the answer in Markdown format
           # $FILTER_ARG       -> Optionally restrict retrieval by content type
           #
+          # Repos ingested default to the GITHUB_REPOS list in ingest.py
+          # (release-automation, application-one, application-two).
+          # Override with --repos owner/repo1 owner/repo2 if needed.
+          #
           # The final output is written to GitHub's Step Summary
           python -m devops_assistant.rag.ask_rag "$QUESTION" \
-            --source local \
             --rebuild-index \
             --markdown $FILTER_ARG >> "$GITHUB_STEP_SUMMARY"

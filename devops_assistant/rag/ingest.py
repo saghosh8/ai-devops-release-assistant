@@ -18,6 +18,7 @@ don't need to know how they were produced.
 from __future__ import annotations
 
 import os
+import sys
 import base64
 import requests
 from dataclasses import dataclass, asdict
@@ -79,8 +80,8 @@ def load_github(repo: str, token: str | None = None) -> list[Document]:
                 date=None,
                 text=content,
             ))
-    except requests.HTTPError:
-        pass
+    except requests.HTTPError as e:
+        print(f"[ingest] WARNING: failed to fetch workflows for {repo}: {e}", file=sys.stderr)
 
     # recent PRs
     try:
@@ -98,8 +99,8 @@ def load_github(repo: str, token: str | None = None) -> list[Document]:
                 date=pr.get("merged_at"),
                 text=text,
             ))
-    except requests.HTTPError:
-        pass
+    except requests.HTTPError as e:
+        print(f"[ingest] WARNING: failed to fetch PRs for {repo}: {e}", file=sys.stderr)
 
     # recent commits
     try:
@@ -118,8 +119,8 @@ def load_github(repo: str, token: str | None = None) -> list[Document]:
                 date=c.get("commit", {}).get("author", {}).get("date"),
                 text=f"Commit {sha}: {msg}",
             ))
-    except requests.HTTPError:
-        pass
+    except requests.HTTPError as e:
+        print(f"[ingest] WARNING: failed to fetch commits for {repo}: {e}", file=sys.stderr)
 
     # README
     try:
@@ -133,8 +134,11 @@ def load_github(repo: str, token: str | None = None) -> list[Document]:
             date=None,
             text=content,
         ))
-    except requests.HTTPError:
-        pass
+    except requests.HTTPError as e:
+        print(f"[ingest] WARNING: failed to fetch README for {repo}: {e}", file=sys.stderr)
+
+    if not docs:
+        print(f"[ingest] WARNING: 0 documents loaded for {repo} — check token access/repo name", file=sys.stderr)
 
     return docs
 

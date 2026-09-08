@@ -1,5 +1,5 @@
 # Name of the GitHub Actions workflow
-name: Ask RAG Demo (Day 14)
+name: Ask RAG Anything
 
 # This workflow runs manually from the GitHub Actions UI
 on:

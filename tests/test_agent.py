@@ -199,6 +199,33 @@ def test_run_agent_raises_agent_error_after_exhausting_retries(monkeypatch, tmp_
     log_path = str(tmp_path / "calls.jsonl")
     with pytest.raises(agent.AgentError, match="Agent step 1 failed"):
         agent.run_agent("why did the build fail?", confirm=lambda t, a: True, log_path=log_path)
+def test_read_tool_unexpected_exception_does_not_crash_the_run(monkeypatch, tmp_path):
+    """The exact failure this test guards against: search_repo_history raising
+    ModuleNotFoundError (sentence-transformers missing) used to propagate all
+    the way up and kill the whole agent run instead of coming back as a
+    tool-level error the model could route around.
+    """
+
+def broken_search_repo_history(question: str, source_type: str = None, k: int = 4) -> dict:
+        raise ModuleNotFoundError("No module named 'sentence_transformers'")
+
+    monkeypatch.setitem(agent.READ_TOOLS, "search_repo_history", broken_search_repo_history)
+    monkeypatch.setitem(agent.ALL_TOOLS, "search_repo_history", broken_search_repo_history)
+
+    responses = [
+        _fake_function_call_response("search_repo_history", {"question": "has this happened before?"}),
+        _fake_final_text_response("Search tool was unavailable, so I relied on other tools instead."),
+    ]
+    monkeypatch.setattr(agent, "get_client", lambda: _fake_client(responses))
+    log_path = str(tmp_path / "calls.jsonl")
+
+    result = agent.run_agent(
+        "has this failure happened before?", confirm=lambda t, a: True, log_path=log_path
+    )
+
+    assert result.stopped_reason == "final_answer"  # the run completed instead of crashing
+    assert "sentence_transformers" in result.steps[0].result["error"]
+    
 def test_sanitize_result_redacts_secrets_in_tool_output():
     sanitized, warnings = agent._sanitize_result(
         {"body": "token: ghp_1234567890abcdefghijklmnopqrstuv"}

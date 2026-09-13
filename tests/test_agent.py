@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 from google.genai import types
 
-from devops_assistant import agent, github_tools
+from devops_assistant import agent, client, github_tools
 
 
 def _fake_function_call_response(name: str, args: dict):

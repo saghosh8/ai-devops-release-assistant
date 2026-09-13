@@ -37,7 +37,7 @@ from .analysis.ci_failure_analysis import analyze_workflow_failure
 from .analysis.commit_analysis import analyze_commits
 from .analysis.deployment_troubleshooting import troubleshoot_deployment
 from .analysis.pr_review import review_pr
-from .client import DEFAULT_MODEL, AssistantError, get_client
+from .client import DEFAULT_MODEL, AssistantError, _with_retries, get_client
 from .prompts import INJECTION_DEFENSE_CLAUSE, SCOPE_GUARDRAIL
 from .tools import get_utc_time
 
@@ -318,11 +318,14 @@ def run_agent(
 
     for step_num in range(1, max_steps + 1):
         with observability.track_call(model, "agent_decision", log_path=log_path) as t:
-            try:
-                response = client.models.generate_content(
+            def _call():
+                return client.models.generate_content(
                     model=model, contents=contents, config=config
                 )
-            except Exception as e:  # network/SDK errors -> a clean AgentError
+
+            try:
+                response = _with_retries(_call)
+            except AssistantError as e:  # retries already exhausted inside _with_retries
                 raise AgentError(f"Agent step {step_num} failed: {e}") from e
             usage = getattr(response, "usage_metadata", None)
             t["input_tokens"] = getattr(usage, "prompt_token_count", 0) or 0

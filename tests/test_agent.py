@@ -152,7 +152,53 @@ def test_write_action_executes_only_after_approval(monkeypatch, tmp_path):
     assert result.steps[0].approved is True
     assert result.steps[0].result["status"] == "rerun_triggered"
 
+def test_run_agent_retries_on_transient_503_then_succeeds(monkeypatch, tmp_path):
+    """The exact failure this test guards against: a 503 UNAVAILABLE from Gemini
+    used to fail the whole agent run immediately instead of retrying, the way
+    ask_structured/ask_json/ask_streaming already do via client._with_retries.
+    """
+    from google.genai import errors as genai_errors
 
+    call_count = {"n": 0}
+    final_response = _fake_final_text_response("All good after a retry.")
+
+    def flaky_generate_content(model, contents, config):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise genai_errors.ServerError(
+                503, {"error": {"code": 503, "message": "overloaded", "status": "UNAVAILABLE"}}
+            )
+        return final_response
+
+    fake_client = MagicMock()
+    fake_client.models.generate_content.side_effect = flaky_generate_content
+    monkeypatch.setattr(agent, "get_client", lambda: fake_client)
+    monkeypatch.setattr(client, "BASE_BACKOFF_SECONDS", 0)  # don't actually sleep in tests
+
+    log_path = str(tmp_path / "calls.jsonl")
+    result = agent.run_agent("why did the build fail?", confirm=lambda t, a: True, log_path=log_path)
+
+    assert call_count["n"] == 2
+    assert result.stopped_reason == "final_answer"
+    assert result.answer == "All good after a retry."
+
+
+def test_run_agent_raises_agent_error_after_exhausting_retries(monkeypatch, tmp_path):
+    from google.genai import errors as genai_errors
+
+    def always_503(model, contents, config):
+        raise genai_errors.ServerError(
+            503, {"error": {"code": 503, "message": "overloaded", "status": "UNAVAILABLE"}}
+        )
+
+    fake_client = MagicMock()
+    fake_client.models.generate_content.side_effect = always_503
+    monkeypatch.setattr(agent, "get_client", lambda: fake_client)
+    monkeypatch.setattr(client, "BASE_BACKOFF_SECONDS", 0)
+
+    log_path = str(tmp_path / "calls.jsonl")
+    with pytest.raises(agent.AgentError, match="Agent step 1 failed"):
+        agent.run_agent("why did the build fail?", confirm=lambda t, a: True, log_path=log_path)
 def test_sanitize_result_redacts_secrets_in_tool_output():
     sanitized, warnings = agent._sanitize_result(
         {"body": "token: ghp_1234567890abcdefghijklmnopqrstuv"}

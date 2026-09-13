@@ -1,0 +1,14 @@
+# Day 21: the agent (agent.py, github_tools.py) only needs requirements.txt
+# (requests is already there). This file adds mcp_server.py's one extra
+# dependency: mcp (MCPServer -- the mcp>=2.0 name for what earlier SDK
+# versions called FastMCP).
+#
+# Not included here: requirements-rag.txt. agent.py's search_repo_history
+# tool imports the Day 14 RAG pipeline (Embedder/Retriever) lazily, inside
+# the function body, precisely so importing agent.py/mcp_server.py -- and
+# running their tests -- never requires sentence-transformers' heavier
+# install unless that specific tool is actually exercised for real. Install
+# requirements-rag.txt yourself if you want search_repo_history to work
+# against a real, freshly-built index rather than a mocked retriever.
+-r requirements.txt
+mcp>=2.0.0

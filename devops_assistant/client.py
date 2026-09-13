@@ -185,6 +185,45 @@ def ask_structured(
     return _extract_json(response.text)
 
 
+def ask_json(
+    system_prompt: str,
+    user_prompt: str,
+    response_schema: dict,
+    model: str = DEFAULT_MODEL,
+    temperature: float = 0.2,
+    max_tokens: int = 512,
+) -> tuple[dict, dict]:
+    """Generic single-turn JSON call, used by agent.py's planning loop (Day 15)
+    rather than duplicating ask_structured's schema-specific plumbing.
+
+    Returns (parsed_json, usage) where usage is
+    {"input_tokens": int, "output_tokens": int} pulled from the response's
+    usage_metadata when available (used by observability.track_call), or
+    zeros if the SDK didn't return it.
+    """
+    client = get_client()
+    config = types.GenerateContentConfig(
+        system_instruction=system_prompt,
+        temperature=temperature,
+        max_output_tokens=max_tokens,
+        response_mime_type="application/json",
+        response_schema=response_schema,
+    )
+
+    def _call():
+        return client.models.generate_content(
+            model=model, contents=[types.Part.from_text(text=user_prompt)], config=config
+        )
+
+    response = _with_retries(_call)
+    usage_meta = getattr(response, "usage_metadata", None)
+    usage = {
+        "input_tokens": getattr(usage_meta, "prompt_token_count", 0) or 0,
+        "output_tokens": getattr(usage_meta, "candidates_token_count", 0) or 0,
+    }
+    return _extract_json(response.text), usage
+
+
 def refine_question(question: str, model: str = DEFAULT_MODEL) -> str:
     """Step 1 of a prompt chain (Day 3): rewrite a vague question precisely.
 

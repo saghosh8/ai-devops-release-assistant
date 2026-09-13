@@ -7,13 +7,17 @@
     python -m devops_assistant stream "..."
     python -m devops_assistant tools-demo "what time is it in UTC right now?"
     python -m devops_assistant history
+    python -m devops_assistant agent "why did the last release-automation run fail?"
+    python -m devops_assistant agent "..." --approve-writes
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 
+from . import agent as agent_module
 from . import client, memory
 from .formatter import print_structured, to_markdown
 from .prompts import flag_suspicious_input
@@ -84,6 +88,38 @@ def cmd_tools_demo(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_agent(args: argparse.Namespace) -> int:
+    """Day 15/16/18: run the full planning loop against real GitHub tools."""
+    _warn_if_suspicious(args.question)
+
+    if args.approve_writes:
+        confirm = lambda tool, tool_args: True  # noqa: E731 -- explicit opt-in, logged below
+        print("warning: --approve-writes is set; write actions will execute without a prompt.",
+              file=sys.stderr)
+    else:
+        confirm = None  # agent_module's interactive y/n prompt
+
+    try:
+        result = agent_module.run_agent(args.question, model=args.model, confirm=confirm)
+    except agent_module.AgentError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+
+    if args.verbose:
+        agent_module.print_transcript(result)
+
+    if args.json:
+        print(json.dumps(
+            {"answer": result.answer, "stopped_reason": result.stopped_reason,
+             "steps": [{"tool": s.tool, "args": s.args, "result": s.result,
+                        "approved": s.approved, "warnings": s.warnings} for s in result.steps]},
+            indent=2, default=str,
+        ))
+    else:
+        print(f"\n$ agent \"{args.question}\"\n\n{result.answer}\n")
+    return 0
+
+
 def cmd_history(_args: argparse.Namespace) -> int:
     history = memory.load_history()
     if not history:
@@ -134,6 +170,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     history_p = sub.add_parser("history", help="Show recently asked questions")
     history_p.set_defaults(func=cmd_history)
+
+    agent_p = sub.add_parser(
+        "agent", help="Run the full agent: plans, calls real GitHub tools, can propose actions"
+    )
+    agent_p.add_argument("question")
+    agent_p.add_argument("--model", default=client.DEFAULT_MODEL, choices=client.AVAILABLE_MODELS)
+    agent_p.add_argument(
+        "--approve-writes", action="store_true",
+        help="Auto-approve any write action the agent proposes (e.g. re-running a workflow) "
+             "instead of prompting interactively. Use only in non-interactive contexts "
+             "(CI) where you already trust the run.",
+    )
+    agent_p.add_argument("--verbose", action="store_true", help="Print the tool-call transcript")
+    agent_p.add_argument("--json", action="store_true", help="Print the full result as JSON")
+    agent_p.set_defaults(func=cmd_agent)
 
     return parser
 

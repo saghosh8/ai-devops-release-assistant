@@ -1,0 +1,122 @@
+# Day 21: run the full agent (agent.py) from GitHub Actions.
+#
+# Unlike ask-devops-assistant.yml (a single structured Q&A call) and
+# ask-rag-demo.yml (retrieval + a local model), this workflow drives the
+# planning loop in agent.py: it can call real read tools against
+# application-one / application-two / release-automation, run this
+# project's own analysis functions on the results, and -- only if you tick
+# "approve_writes" -- propose and execute a workflow re-run.
+name: Run Agent
+
+on:
+  workflow_dispatch:
+    inputs:
+      question:
+        description: "What should the agent investigate?"
+        required: true
+        default: "Why did the last workflow run fail on application-one, and is a re-run worth trying?"
+
+      repo:
+        description: "Which repo the question is mainly about (the agent can still look at the others via its tools)"
+        required: false
+        type: choice
+        default: "saghosh8/application-one"
+        options:
+          - "saghosh8/application-one"
+          - "saghosh8/application-two"
+          - "saghosh8/release-automation"
+
+      approve_writes:
+        description: "Auto-approve any write action the agent proposes (e.g. re-running a workflow). Leave false to only ever get a proposal in the transcript."
+        required: false
+        type: boolean
+        default: false
+
+      model:
+        description: "Which model to use"
+        required: false
+        type: choice
+        default: gemini-3.5-flash
+        options:
+          - gemini-3.5-flash
+          - gemini-3.5-flash-lite
+
+permissions:
+  contents: read
+
+jobs:
+  run-agent:
+    name: Run agent
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-agent.txt
+
+      - name: Run the agent
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+          # The default GITHUB_TOKEN is enough for every READ tool the agent
+          # calls (list/get PRs, issues, workflow runs, jobs, logs, commits),
+          # including on application-one/application-two, since those calls
+          # only need public read access.
+          #
+          # A WRITE action (rerun_workflow, comment_on_issue) against a repo
+          # OTHER than this one needs a token with actions/repo write scope
+          # on that target repo -- the default GITHUB_TOKEN is scoped to
+          # THIS repo only. If you set approve_writes=true and want it to
+          # actually succeed against application-one/two rather than fail
+          # with a permissions error, add a personal access token as a
+          # repository secret named CROSS_REPO_TOKEN and it'll be picked up
+          # automatically here; otherwise the default token is used and any
+          # cross-repo write will simply come back as an error in the
+          # transcript, which is a safe failure mode, not a security issue.
+          GITHUB_TOKEN: ${{ secrets.CROSS_REPO_TOKEN || secrets.GITHUB_TOKEN }}
+
+          QUESTION: ${{ inputs.question }}
+          TARGET_REPO: ${{ inputs.repo }}
+          APPROVE_WRITES: ${{ inputs.approve_writes }}
+        run: |
+          set -euo pipefail
+
+          FULL_QUESTION="Repo of interest: ${TARGET_REPO}. ${QUESTION}"
+
+          if [ "$APPROVE_WRITES" = "true" ]; then
+            APPROVE_FLAG="--approve-writes"
+          else
+            APPROVE_FLAG=""
+          fi
+
+          # --verbose prints the tool-call transcript to stderr so it shows
+          # up in the job log even though only the final answer (via --json,
+          # piped through jq) goes to the step summary.
+          python -m devops_assistant agent "$FULL_QUESTION" \
+            --model "${{ inputs.model }}" \
+            $APPROVE_FLAG \
+            --verbose \
+            --json > agent_result.json
+
+          {
+            echo "### Agent answer"
+            echo
+            jq -r '.answer' agent_result.json
+            echo
+            echo "### Tool calls made"
+            echo
+            jq -r '.steps[] | "- `\(.tool)`\(if .approved != null then " (approved=\(.approved))" else "" end)"' agent_result.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload full transcript
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-transcript
+          path: agent_result.json

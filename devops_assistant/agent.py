@@ -282,6 +282,12 @@ def _execute_tool(
         result = {"error": str(e)}
     except TypeError as e:
         result = {"error": f"Bad arguments for {name}: {e}"}
+    except Exception as e:  # noqa: BLE001 -- one tool failing must not crash the whole run
+        # e.g. search_repo_history's sentence-transformers dependency missing:
+        # that should come back as a tool-level error the model can route
+        # around (use a different tool), not an unhandled exception that
+        # takes down every other tool call already made this run.
+        result = {"error": f"{name} failed unexpectedly: {type(e).__name__}: {e}"}
     sanitized, warnings = _sanitize_result(result)
     return AgentStep(tool=name, args=args, result=sanitized, warnings=warnings)
 

@@ -268,6 +268,8 @@ def _execute_tool(
                 )
             except github_tools.GitHubToolError as e:
                 result = {"error": str(e)}
+            except Exception as e:  # noqa: BLE001 -- same safety net as the read-tool path below
+                result = {"error": f"rerun_workflow failed unexpectedly: {type(e).__name__}: {e}"}
         sanitized, warnings = _sanitize_result(result)
         return AgentStep(tool=name, args=args, result=sanitized, approved=approved, warnings=warnings)
 

@@ -48,25 +48,28 @@ This milestone answers questions like *"what changed in the release workflow?"* 
 there any security issue across these repos?"* — things the Day 7 assistant structurally
 cannot know, because it has no access to real repo history.
 
-## 🔜 v1.0-day21 — Full agent: AI-Powered DevOps Release Assistant
+## ✅ v1.0-day21 — Full agent: AI-Powered DevOps Release Assistant
 
 Per the course diagram: RAG pipeline + vector search + LLM, wired to an agent that can
 both **answer** and **act** via tools against GitHub/CI-CD.
 
-Planned additions:
-
-| File | What it will do |
+| File | What it does |
 |---|---|
-| `agent.py` | Planning loop: given a question, decide whether to retrieve, call a tool, or answer directly, possibly across multiple steps (Day 15) |
-| `github_tools.py` | Real GitHub API tools (read PRs/issues/workflow runs; *execute* actions like re-running a workflow only behind an explicit human-approval gate) (Day 16) |
-| `analysis/` | PR review, commit analysis, CI/CD failure analysis, log analysis, deployment troubleshooting as distinct, testable functions the agent can call (Day 17) |
-| `security.py` | Prompt-injection defenses (extending what v0.1 already has), secret-leak scanning on any content passed to the model, basic PII detection, mapped explicitly against the OWASP LLM Top 10 (Day 18) |
-| `observability.py` | Prompt/model versioning, per-call cost and latency logging, a small eval set to catch regressions (Day 19) |
-| `mcp_server.py` | Expose this assistant's tools over MCP, so it can be called from any MCP-compatible client, not just this CLI (Day 20) |
+| `agent.py` | Planning loop: given a question, decides whether to search repo history, call a GitHub tool, run one of `analysis/`'s functions, or answer directly — across up to 6 steps. Uses Gemini's *manual* (not automatic) function calling specifically so a human-approval step can sit between "model proposes a write action" and "GitHub API is actually called" (Day 15) |
+| `github_tools.py` | Real GitHub REST API tools: read PRs/issues/workflow runs/jobs/logs/commits freely; the two write tools (`rerun_workflow`, `comment_on_issue`) raise `ApprovalRequiredError` unless called with `approved=True` — the agent's own model loop never sets that flag itself (Day 16) |
+| `analysis/` | `pr_review.py`, `commit_analysis.py`, `ci_failure_analysis.py`, `log_analysis.py`, `deployment_troubleshooting.py` — plain, deterministic, dict-in/dict-out functions with no GitHub API calls inside them, so each is testable with fixture data alone. `agent.py` wires GitHub data into them via composite tools (`diagnose_workflow_run`, `review_pull_request`, `troubleshoot_latest_failed_run`) (Day 17) |
+| `security.py` | Secret-leak scanning and PII detection (`scan_content`, `redact`, `sanitize_tool_output`) applied to every tool result before it re-enters the model's context; a blocking prompt-injection check for the agent's autonomous loop; an explicit `MITIGATION_MAP` against the OWASP LLM Top 10 (Day 18) |
+| `observability.py` | `track_call` context manager logs latency, estimated cost, and prompt/model version per call to a local JSONL file; `run_eval` runs a small fixed eval set against any predict function to catch regressions (Day 19) |
+| `mcp_server.py` | Exposes 19 tools (all of `github_tools.py`, the composite analysis tools, RAG search, and the original Day 7 `ask`) over MCP via the official `mcp` SDK, so any MCP-compatible client — not just this repo's CLI — can call them (Day 20) |
 
-Also planned: an interview prep doc — 2-minute pitch, RAG vs Agent, RAG vs fine-tuning,
-embeddings/vector DB explanations, hallucination handling, security and cost/latency Q&A
-(Day 21 prep list).
+Run it: `python -m devops_assistant agent "<question>"` (add `--verbose` for the tool-call
+transcript, `--approve-writes` to auto-approve any proposed write action instead of being
+prompted interactively), or via the **"Run Agent"** GitHub Actions workflow. Run the MCP
+server with `python -m devops_assistant.mcp_server`.
+
+See [`INTERVIEW_PREP.md`](INTERVIEW_PREP.md) for the Day 21 prep list: 2-minute pitch, RAG
+vs Agent, RAG vs fine-tuning, embeddings/vector DB explanations, hallucination handling,
+security and cost/latency Q&A.
 
 ## Design principle across all three milestones
 

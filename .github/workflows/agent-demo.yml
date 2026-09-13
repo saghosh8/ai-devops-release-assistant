@@ -58,7 +58,13 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r requirements-agent.txt
+        run: |
+          pip install -r requirements-agent.txt
+          # search_repo_history (one of the agent's tools) needs the Day 14
+          # RAG stack (sentence-transformers etc.), which requirements-agent.txt
+          # deliberately omits to keep local/test installs lighter -- see that
+          # file's comment. The live workflow needs it installed for real.
+          pip install -r requirements-rag.txt
 
       - name: Run the agent
         env:

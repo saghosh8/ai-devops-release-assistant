@@ -1,10 +1,13 @@
 # 🚀 AI-Powered DevOps Release Assistant
-<a href="https://github.com/saghosh8/ai-devops-release-assistants">
-  <img src="https://img.shields.io/github/stars/saghosh8/AI-For-DevOps?style=for-the-badge&logo=github&label=STAR" />
-<a href="https://github.com/saghosh8/ai-devops-release-assistant/fork">
-  <img src="https://img.shields.io/github/forks/saghosh8/AI-For-DevOps?style=for-the-badge&logo=github&label=FORK" />
-</a>
 
+A single DevOps assistant that evolves across a 3-week AI/GenAI journey — from a plain LLM Q&A tool on **Day 7**, to a RAG-powered retriever on **Day 14**, to a full agentic system with tools, security, observability, and MCP on **Day 21**.
+
+<a href="https://github.com/saghosh8/ai-devops-release-assistant">
+  <img src="https://img.shields.io/github/stars/saghosh8/ai-devops-release-assistant?style=for-the-badge&logo=github&label=STAR" />
+<a href="https://github.com/saghosh8/ai-devops-release-assistant/fork">
+  <img src="https://img.shields.io/github/forks/saghosh8/ai-devops-release-assistant?style=for-the-badge&logo=github&label=FORK" />
+</a>
+  
 ---
 
 **A single assistant, growing across a 3-week AI/GenAI course — from a plain LLM Q&A tool (Day 7) to a RAG-powered retriever (Day 14) to a full agentic system with tools, security, and MCP (Day 21).**
@@ -19,85 +22,332 @@
 
 ---
 
-## The three-milestone arc
 
-This repo is intentionally **one evolving codebase**, not three separate projects. Each milestone is tagged so the growth is visible in the git history — which is the point: the same assistant gains capabilities each week rather than being rebuilt from scratch.
+## The Three-Milestone Arc
 
-| Tag | Week | What it adds | Status |
-| --- | ---- | ------------- | ------ |
-| [`v0.1-day7`](https://github.com/saghosh8/ai-devops-release-assistant/releases/tag/v0.1-day7) | Week 1 | Plain LLM Q&A → structured runbook | ✅ Done |
-| [`v0.2-day14`](https://github.com/saghosh8/ai-devops-release-assistant/releases/tag/v0.2-day14) | Week 2 | RAG: ingest real GitHub docs/PRs/commits/YAML from 3 live repos → chunk → embed → FAISS → retrieve → answer with a local Ollama model | ✅ Done |
-| `v1.0-day21` | Week 3 | Full agent: tool-use against the real GitHub API, prompt-injection/PII guardrails, cost/latency logging, MCP server exposing this assistant's tools | ✅ Current |
+This is intentionally **one evolving codebase**, not three separate projects.
+
+The same assistant gains new capabilities at each milestone:
+
+| Milestone                                                                               | Week   | What it adds                                                    | Status    |
+| --------------------------------------------------------------------------------------- | ------ | --------------------------------------------------------------- | --------- |
+| [`v0.1-day7`](https://github.com/saghosh8/ai-devops-release-assistant/tree/v0.1-day7)   | Week 1 | Plain LLM Q&A → structured DevOps runbook                       | ✅         |
+| [`v0.2-day14`](https://github.com/saghosh8/ai-devops-release-assistant/tree/v0.2-day14) | Week 2 | RAG over GitHub documentation, PRs, commits and YAML            | ✅         |
+| [`v0.3-day21`](https://github.com/saghosh8/ai-devops-release-assistant/tree/v0.3-day21) | Week 3 | Agentic tool-use, GitHub API, guardrails, observability and MCP | ✅         |
 
 ```mermaid
 flowchart LR
-    subgraph D7["Day 7"]
-        A[Question] --> B[Gemini API]
-        B --> C[Structured runbook]
+    subgraph D7["Day 7 — LLM"]
+        A[DevOps Question] --> B[Gemini API]
+        B --> C[Structured Runbook]
     end
-    subgraph D14["Day 14"]
-        D[GitHub: YAML/PRs/commits/docs] --> E[Chunk + embed]
+
+    subgraph D14["Day 14 — RAG"]
+        D[GitHub Data] --> E[Chunk + Embed]
         E --> F[(FAISS)]
         F --> G[Retriever]
-        G --> H[Ollama - local LLM]
+        G --> H[Ollama]
     end
-    subgraph D21["Day 21 — this stage"]
-        I[Agent + tools] --> J[GitHub API actions]
-        I --> K[Guardrails + logging]
-        I --> L[MCP server]
+
+    subgraph D21["Day 21 — Agent"]
+        I[Agent] --> J[GitHub Tools]
+        I --> K[Guardrails]
+        I --> L[MCP]
     end
-    D7 -.grows into.-> D14 -.grows into.-> D21
+
+    D7 -.-> D14
+    D14 -.-> D21
 ```
 
-See [`ROADMAP.md`](ROADMAP.md) for exactly what each milestone added, module by module,
-and [`INTERVIEW_PREP.md`](INTERVIEW_PREP.md) for the Day 21 prep Q&A.
+See [`ROADMAP.md`](ROADMAP.md) for the milestone-by-milestone implementation details and [`INTERVIEW_PREP.md`](INTERVIEW_PREP.md) for the Day 21 interview preparation.
 
 ---
 
-## What this stage (Day 21) is
+# What the Assistant Can Do
 
-The Day 14 RAG pipeline is still here, unchanged — `search_repo_history` in `agent.py`
-calls it directly. What's new is a **planning loop** (`agent.py`) that can, across
-multiple steps, decide to search that repo history, call a real GitHub API tool, run one
-of this project's own deterministic analysis functions, or answer directly. It has real
-read access to PRs, issues, workflow runs, jobs, logs, and commits across
-[`release-automation`](https://github.com/saghosh8/release-automation), `application-one`,
-and `application-two`. It has exactly one class of *write* action — re-running a workflow
-or commenting on an issue — and neither ever executes without an explicit human approval
-step; the model can only propose them.
+The current Day 21 version can investigate real DevOps problems across GitHub repositories.
 
-Three ways to run it:
+It can:
 
-1. **Locally**, as a CLI: `python -m devops_assistant agent "<question>"`
-2. **Entirely inside GitHub**, via the **"Run Agent"** `workflow_dispatch` Action — type a
-   question, pick which repo it's mainly about, optionally auto-approve write actions, get
-   the answer and tool-call transcript in the run summary.
-3. **Over MCP**, via `python -m devops_assistant.mcp_server` — every tool below is
-   reachable from Claude Desktop, Claude Code, or any other MCP-compatible client.
+* Investigate failed GitHub Actions workflows
+* Inspect workflow runs and jobs
+* Analyze workflow logs
+* Review pull requests
+* Analyze recent commits
+* Troubleshoot deployment failures
+* Search repository history using the Day 14 RAG pipeline
+* Propose GitHub actions such as rerunning a workflow
+* Propose commenting on an issue
+* Require human approval before write actions
+* Detect secrets and PII
+* Check tool output for prompt injection
+* Track cost and latency
+* Expose its tools through MCP
 
-## Why it's built this way
+The assistant currently works with:
 
-- **Manual, not automatic, function calling.** Gemini's SDK can execute tool calls
-  invisibly and loop on its own (see `tools.py`'s `get_utc_time` demo) — but that gives no
-  seam for a human-approval step. `agent.py` runs its own explicit loop instead, precisely
-  so a proposed write action can be intercepted and confirmed before the real GitHub API
-  is ever called.
-- **Composite tools over raw data.** `diagnose_workflow_run`, `review_pull_request`,
-  `analyze_recent_commits`, and `troubleshoot_latest_failed_run` each fetch GitHub data
-  *and* run this project's own analysis logic (`analysis/`) in one tool call, rather than
-  making the model reconstruct that reasoning itself from raw API responses every time.
-- **Every tool result is sanitized before the model sees it again.** `security.py` scans
-  for secrets and PII and runs an injection check on tool output specifically — a PR body
-  or log line is attacker-reachable content in a way the user's own question generally
-  isn't, so it gets the stricter treatment (see `INTERVIEW_PREP.md`'s security section).
-- **The write-tool gate lives in `github_tools.py` itself, not just in the agent.**
-  `rerun_workflow(..., approved=False)` raises `ApprovalRequiredError` by default no
-  matter who calls it — the MCP server exposes that same `approved` parameter directly
-  rather than hiding it, so the gate holds regardless of which client is calling.
+* `release-automation`
+* `application-one`
+* `application-two`
 
-## Project structure
+---
 
+# Day 7 — LLM DevOps Assistant
+
+The first milestone is a simple LLM-powered DevOps assistant.
+
+The user asks a DevOps question, the assistant sends it to Gemini, and returns a structured response that can be used as a troubleshooting runbook.
+
+### Day 7 capabilities
+
+* Gemini API integration
+* System prompts
+* Structured JSON output
+* Streaming responses
+* Conversation history
+* Context-window management
+* Basic scope guardrails
+* Tool calling example
+* CLI interface
+* GitHub Actions runner
+
+## Running the Day 7 assistant directly
+
+```bash
+# Ask the DevOps assistant a question
+python -m devops_assistant ask "why is my Kubernetes pod in CrashLoopBackOff?"
+
+# Stream the response
+python -m devops_assistant stream "explain this deployment failure"
+
+# Run the tool-use demo
+python -m devops_assistant tools-demo
+
+# View conversation history
+python -m devops_assistant history
 ```
+
+Or use the **Ask DevOps Assistant** GitHub Actions workflow from the **Actions** tab — no local setup required.
+
+---
+
+# Day 14 — RAG-Powered DevOps Assistant
+
+The second milestone gives the assistant access to real repository knowledge.
+
+Instead of asking the LLM to answer from its general knowledge, the system:
+
+1. Ingests GitHub repository content
+2. Chunks the documents
+3. Generates embeddings
+4. Stores them in FAISS
+5. Retrieves relevant chunks
+6. Sends the retrieved context to a local Ollama model
+7. Generates a grounded answer
+
+The RAG pipeline can ingest:
+
+* YAML files
+* README/documentation
+* Pull requests
+* Commits
+
+## Running the Day 14 RAG pipeline directly
+
+```bash
+# Ask a question against the default configured repositories
+python -m devops_assistant.rag.ask_rag "why might the release workflow fail on the docker build step?"
+
+# Rebuild the FAISS index
+python -m devops_assistant.rag.ask_rag "..." --rebuild-index
+
+# Restrict retrieval to one content type
+python -m devops_assistant.rag.ask_rag "..." --filter pr
+
+# Use different repositories
+python -m devops_assistant.rag.ask_rag "..." --repos owner/repo1 owner/repo2
+
+# Retrieve more chunks
+python -m devops_assistant.rag.ask_rag "..." -k 12
+
+# Return Markdown output
+python -m devops_assistant.rag.ask_rag "..." --markdown
+```
+
+Or use the **Ask RAG Anything** GitHub Actions workflow from the **Actions** tab.
+
+The workflow installs and runs Ollama inside the GitHub Actions job, so no local Ollama installation is required.
+
+---
+
+# Day 21 — Agentic DevOps Assistant
+
+The final milestone turns the assistant into an agent.
+
+The agent can decide which tools it needs to use to investigate a problem instead of following one fixed pipeline.
+
+For example:
+
+```text
+User question
+      ↓
+Agent
+      ↓
+Decide what information is needed
+      ↓
+┌───────────────┬────────────────┬──────────────────┐
+│ GitHub API    │ RAG search     │ Analysis tools   │
+│               │                │                  │
+│ PRs           │ Repo history   │ CI failures      │
+│ Issues        │                │ PR risk           │
+│ Workflows     │                │ Commits           │
+│ Jobs          │                │ Deployments       │
+│ Logs          │                │                  │
+└───────────────┴────────────────┴──────────────────┘
+      ↓
+Sanitize + validate tool results
+      ↓
+Agent decides next step
+      ↓
+Answer / proposed action
+```
+
+### Day 21 capabilities
+
+* Manual agent planning loop
+* GitHub API tools
+* Composite DevOps analysis tools
+* Human approval for write actions
+* Secret detection
+* PII detection
+* Prompt-injection checks
+* Cost and latency logging
+* Prompt versioning
+* Evaluation set
+* MCP server
+* GitHub Actions execution
+
+The Day 14 RAG pipeline is still part of the system. The agent can call `search_repo_history` when repository history is useful for answering a question.
+
+---
+
+## Running the Day 21 agent directly
+
+```bash
+# Ask the agent to investigate a DevOps issue
+python -m devops_assistant agent \
+  "why did the last workflow run fail on application-one?"
+
+# See every tool call made by the agent
+python -m devops_assistant agent "..." --verbose
+
+# Auto-approve proposed write actions
+python -m devops_assistant agent "..." --approve-writes
+
+# Return the complete result as JSON
+python -m devops_assistant agent "..." --json
+
+# Use a smaller/cheaper model
+python -m devops_assistant agent "..." --model gemini-3.5-flash-lite
+```
+
+### GitHub Actions
+
+The agent can also run entirely inside GitHub.
+
+1. Add `GEMINI_API_KEY` as a repository secret.
+2. For write actions against `application-one` or `application-two`, add a token with the required permissions as `CROSS_REPO_TOKEN`.
+3. Open the **Actions** tab.
+4. Select **Run Agent**.
+5. Enter the question and select the repository.
+6. Run the workflow.
+7. Open the completed workflow to see the answer and tool-call transcript.
+
+No local installation is required.
+
+---
+
+# MCP Server
+
+The Day 21 assistant can expose its tools through the Model Context Protocol.
+
+Run the server locally:
+
+```bash
+python -m devops_assistant.mcp_server
+```
+
+Or run it using SSE:
+
+```bash
+python -m devops_assistant.mcp_server --transport sse --port 8787
+```
+
+The MCP server exposes the assistant's DevOps tools to MCP-compatible clients such as:
+
+* Claude Desktop
+* Claude Code
+* Other MCP-compatible clients
+
+The exposed tools include GitHub read/write tools, analysis tools, repository-history search, and the original Day 7 DevOps question tool.
+
+---
+
+# Why It Is Built This Way
+
+## Manual agent loop
+
+The agent uses an explicit planning loop rather than relying entirely on automatic SDK function calling.
+
+This creates a clear point where a proposed write action can be intercepted and approved by a human.
+
+## Composite DevOps tools
+
+Instead of forcing the model to reconstruct complex analysis from raw GitHub API responses, the project provides higher-level tools such as:
+
+* `diagnose_workflow_run`
+* `review_pull_request`
+* `analyze_recent_commits`
+* `troubleshoot_latest_failed_run`
+
+These tools combine GitHub data with deterministic analysis functions.
+
+## Tool-result sanitization
+
+Tool results are treated as untrusted input.
+
+PR descriptions, commit messages, issue bodies, and workflow logs can contain attacker-controlled content, so tool output is scanned for:
+
+* Secrets
+* PII
+* Prompt injection
+
+before being passed back to the model.
+
+## Write-action approval
+
+Write operations are protected at the tool layer.
+
+For example:
+
+```python
+rerun_workflow(..., approved=False)
+```
+
+will not execute the action unless explicit approval is provided.
+
+This protection applies regardless of whether the tool is called through:
+
+* The agent
+* MCP
+* Tests
+* Another client
+
+---
+
+# Project Structure
+
+```text
 ai-devops-release-assistant/
 ├── devops_assistant/
 │   ├── client.py            # Day 7: Gemini API calls, retries, streaming, tool-use loop
@@ -138,121 +388,153 @@ ai-devops-release-assistant/
 ├── ROADMAP.md
 ├── INTERVIEW_PREP.md
 └── README.md
-```
-
-## Setup
 
 ```
-git clone https://github.com/YOUR_USERNAME/ai-devops-release-assistant.git
+
+---
+
+# Setup
+
+Clone the repository:
+
+```bash
+git clone https://github.com/saghosh8/ai-devops-release-assistant.git
 cd ai-devops-release-assistant
-pip install -r requirements-agent.txt   # covers the agent + RAG + MCP server
-export GEMINI_API_KEY=...               # agent reasoning
-export GITHUB_TOKEN=ghp_...             # only needed for private repos or write actions;
-                                         # public read access works unauthenticated (lower rate limit)
 ```
 
-## Usage — the agent
+Install the complete Day 21 dependencies:
 
-```
-# Ask the agent to investigate (it decides which tools to call)
-python -m devops_assistant agent "why did the last workflow run fail on application-one?"
-
-# See every tool call it made, in order
-python -m devops_assistant agent "..." --verbose
-
-# Auto-approve any write action it proposes instead of an interactive y/n prompt
-# (only for non-interactive contexts you already trust, e.g. CI)
-python -m devops_assistant agent "..." --approve-writes
-
-# Full result — answer, tool calls, args, results — as JSON
-python -m devops_assistant agent "..." --json
-
-# Use the smaller/cheaper model
-python -m devops_assistant agent "..." --model gemini-3.5-flash-lite
+```bash
+pip install -r requirements-agent.txt
 ```
 
-## Usage — the MCP server
+Set the required environment variables:
 
-```
-python -m devops_assistant.mcp_server                      # stdio, for Claude Desktop/Code config
-python -m devops_assistant.mcp_server --transport sse --port 8787
-```
-
-Point an MCP client at it (stdio: `python -m devops_assistant.mcp_server`; sse/streamable-
-http: the host/port above) to get all 19 tools — every `github_tools.py` read/write tool,
-the composite analysis tools, `search_repo_history`, and the original Day 7
-`ask_devops_question` — from that client directly.
-
-## Running the agent from GitHub, with nothing installed locally
-
-1. Add `GEMINI_API_KEY` as a repository secret.
-2. For write actions against `application-one`/`application-two` specifically (not this
-   repo), also add a personal access token with `repo` + `actions` scope on those repos as
-   a secret named `CROSS_REPO_TOKEN` — the default `GITHUB_TOKEN` only has write access to
-   this repo. Read-only investigation works without this.
-3. Go to the **Actions** tab → **Run Agent** → **Run workflow**.
-4. Type your question, pick the repo it's mainly about, leave `approve_writes` off unless
-   you want proposed actions to execute automatically.
-5. Open the completed run — the answer and tool-call list are in the **Summary**; the full
-   transcript (including sanitization warnings, if any) is attached as a build artifact.
-
-## Running the Day 14 RAG pipeline directly
-
-```
-# Ask a question against the default configured repos (release-automation, application-one, application-two)
-python -m devops_assistant.rag.ask_rag "why might the release workflow fail on the docker build step?"
-
-# Rebuild the FAISS index first (needed on first run, or after repo content changes)
-python -m devops_assistant.rag.ask_rag "..." --rebuild-index
-
-# Restrict retrieval to one content type
-python -m devops_assistant.rag.ask_rag "..." --filter pr
-
-# Point at different repos entirely
-python -m devops_assistant.rag.ask_rag "..." --repos owner/repo1 owner/repo2
-
-# More retrieved chunks per query (default: 8)
-python -m devops_assistant.rag.ask_rag "..." -k 12
-
-# Markdown output (what the GitHub Action pipes into the run summary)
-python -m devops_assistant.rag.ask_rag "..." --markdown
+```bash
+export GEMINI_API_KEY=...
+export GITHUB_TOKEN=...
 ```
 
-Or via the **"Ask RAG Anything"** GitHub Actions workflow (Actions tab) — no local setup
-required, Ollama installs and runs inside the job.
+`GITHUB_TOKEN` is required for authenticated GitHub access and write actions.
 
-## Testing
+Public repositories can be read without authentication, although unauthenticated requests have lower GitHub API rate limits.
 
-```
+---
+
+# Testing
+
+Install the development dependencies:
+
+```bash
 pip install -r requirements-dev.txt
+```
+
+Run the tests:
+
+```bash
 pytest tests/ -v
 ```
 
-Everything is mocked at the network boundary — a fake `requests` response for
-`github_tools.py`, a fully scripted fake Gemini client for `agent.py`, a deterministic
-fake embedder and mocked `ingest.load()` for the RAG tests. No model downloads, no GitHub
-API calls, no LLM API key, no network dependency anywhere in CI.
+The tests mock external services at the network boundary.
 
-## Design notes
+No following are required to run the test suite:
 
-- **Retrieval is decoupled from ingestion source.** `ingest.py` exposes a single `load()`
-  returning `Document` objects; everything downstream (`retriever.py`, `rag_client.py`,
-  and now `agent.py`'s `search_repo_history`) is agnostic to where those documents came
-  from.
-- **Failures during ingestion are logged, not swallowed.** Each GitHub API call that fails
-  (auth, rate limit, wrong repo name) prints a `[ingest] WARNING` to stderr.
-- **Analysis functions never call the GitHub API themselves.** Everything in `analysis/`
-  is a plain `dict`-in/`dict`-out function, testable with fixture data alone — `agent.py`
-  is the only place that wires live GitHub data into them.
-- **The approval gate is enforced at the tool layer, not the caller layer.**
-  `github_tools.rerun_workflow` and `comment_on_issue` refuse to act without
-  `approved=True` regardless of whether they're called from `agent.py`'s model loop,
-  `mcp_server.py`, or a test — there's exactly one place that decision is made.
+* GitHub API access
+* Gemini API key
+* Model downloads
+* Network access
 
-## Scope note
+---
 
-Each milestone stuck to its own course week's concepts: Day 14 to RAG (ingestion through
-grounded generation), Day 21 to agentic tool-use, security, observability, and MCP. The
-`.github/workflows/` demo runners and the pytest CI workflow are the one deliberate
-exception across all three — general delivery practice, not new concepts for that week,
-added specifically so everything can be run and verified entirely via GitHub.
+# Design Notes
+
+### Retrieval is decoupled from ingestion
+
+`ingest.py` produces `Document` objects.
+
+Everything downstream can work with those documents without needing to know where they came from.
+
+### Analysis is deterministic
+
+The functions under `analysis/` operate on structured data and do not call the GitHub API themselves.
+
+This keeps the analysis logic independently testable.
+
+### GitHub access is centralized
+
+The agent is responsible for connecting live GitHub data with the analysis functions.
+
+### Approval is enforced at the tool layer
+
+Write tools refuse to execute unless approval is explicitly provided.
+
+This means the safety mechanism remains active regardless of how the tool is accessed.
+
+---
+
+# Course Progression
+
+The repository follows the 21-day AI for DevOps learning path:
+
+```text
+Week 1 — LLM Foundations
+        ↓
+Day 7 — LLM DevOps Assistant
+        ↓
+Week 2 — RAG
+        ↓
+Day 14 — RAG DevOps Assistant
+        ↓
+Week 3 — Agents + MCP + LLMOps
+        ↓
+Day 21 — Agentic DevOps Assistant
+```
+
+The goal is not to build three disconnected demos.
+
+The goal is to show how a **single DevOps assistant evolves as new AI concepts are introduced**.
+
+---
+
+# Milestone Summary
+
+|                      | Day 7 | Day 14 | Day 21 |
+| -------------------- | ----- | ------ | ------ |
+| LLM                  | ✅     | ✅      | ✅      |
+| Structured output    | ✅     | ✅      | ✅      |
+| Conversation history | ✅     | ✅      | ✅      |
+| RAG                  | —     | ✅      | ✅      |
+| Embeddings           | —     | ✅      | ✅      |
+| FAISS                | —     | ✅      | ✅      |
+| GitHub data          | —     | ✅      | ✅      |
+| Agent loop           | —     | —      | ✅      |
+| GitHub tools         | —     | —      | ✅      |
+| DevOps analysis      | —     | —      | ✅      |
+| Security guardrails  | —     | —      | ✅      |
+| Human approval       | —     | —      | ✅      |
+| Observability        | —     | —      | ✅      |
+| MCP                  | —     | —      | ✅      |
+
+---
+
+# Scope
+
+Each milestone focuses on the concepts introduced during that stage of the course:
+
+* **Day 7:** LLM fundamentals and DevOps Q&A
+* **Day 14:** RAG — ingestion, embeddings, retrieval and grounded generation
+* **Day 21:** Agentic tool-use, security, observability and MCP
+
+The GitHub Actions workflows and automated tests are shared infrastructure across the milestones so the project can be run and verified entirely through GitHub.
+
+---
+
+## ⭐ Explore the Project
+
+If you find this useful:
+
+⭐ Star the repository
+🍴 Fork it
+💬 Open an issue or discussion with ideas and feedback
+
+The project is built as a learning journey, so the Git history is part of the story.

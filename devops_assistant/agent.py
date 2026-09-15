@@ -41,7 +41,7 @@ from .client import DEFAULT_MODEL, AssistantError, _with_retries, get_client
 from .prompts import INJECTION_DEFENSE_CLAUSE, SCOPE_GUARDRAIL
 from .tools import get_utc_time
 
-MAX_STEPS = 6
+MAX_STEPS = 10
 
 AGENT_SYSTEM_PROMPT = (
     "You are an agentic DevOps release assistant with real read access to GitHub "

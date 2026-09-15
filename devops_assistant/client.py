@@ -51,8 +51,11 @@ AVAILABLE_MODELS = ["gemini-3.5-flash", "gemini-3.5-flash-lite"]
 # than hardcoded so the effect is something you can actually see, not just read about.
 DEFAULT_TEMPERATURE = 0.3
 
-MAX_RETRIES = 3
+MAX_RETRIES = 5
 BASE_BACKOFF_SECONDS = 2
+# Free-tier RPM limits mean Google's suggested retryDelay can be 30-60s+.
+# Cap how long we'll ever sleep for one retry so a bad/huge value can't hang the run.
+MAX_BACKOFF_SECONDS = 65
 
 RUNBOOK_RESPONSE_SCHEMA = {
     "type": "object",
@@ -104,8 +107,28 @@ def _to_contents(messages: list[dict]) -> list:
     return contents
 
 
+def _retry_delay_seconds(e: genai_errors.ClientError) -> Optional[float]:
+    """Pull Google's own suggested wait (RetryInfo.retryDelay, e.g. '54s') out
+    of a 429's error details, if present. Returns None if we can't find one."""
+    try:
+        details = e.details or {}
+        error_details = details.get("error", {}).get("details", [])
+        for d in error_details:
+            if d.get("@type", "").endswith("RetryInfo"):
+                raw = d.get("retryDelay", "")  # e.g. "54.457251985s"
+                return float(raw.rstrip("s"))
+    except (AttributeError, ValueError, TypeError):
+        pass
+    return None
+
+
 def _with_retries(fn: Callable):
-    """Call fn(), retrying on rate limits / transient overload with backoff."""
+    """Call fn(), retrying on rate limits / transient overload with backoff.
+
+    On a 429, prefer the wait time Google itself suggests (RetryInfo.retryDelay)
+    over our own fixed exponential schedule — free-tier per-minute quotas often
+    need 30-60s+ to clear, far longer than a fixed 2s/4s backoff allows for.
+    """
     last_error: Optional[Exception] = None
     for attempt in range(MAX_RETRIES):
         try:
@@ -114,8 +137,14 @@ def _with_retries(fn: Callable):
             code = getattr(e, "code", None)
             if code == 429 and attempt < MAX_RETRIES - 1:
                 last_error = e
-                wait = BASE_BACKOFF_SECONDS * (2 ** attempt)
-                print(f"  (rate limited — retrying in {wait}s...)", file=sys.stderr)
+                suggested = _retry_delay_seconds(e)
+                if suggested is not None:
+                    wait = min(suggested, MAX_BACKOFF_SECONDS)
+                    reason = "rate limited (server-suggested wait)"
+                else:
+                    wait = BASE_BACKOFF_SECONDS * (2 ** attempt)
+                    reason = "rate limited"
+                print(f"  ({reason} — retrying in {wait:.0f}s...)", file=sys.stderr)
                 time.sleep(wait)
                 continue
             raise AssistantError(f"API request error ({code}): {e}") from e
